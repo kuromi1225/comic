@@ -8,6 +8,11 @@ use PDO;
 class ComicController
 {
 
+
+    // ディレクトリパスを定数または設定ファイルで管理するのが望ましい
+    private const COVER_IMAGE_DIR_PATH = __DIR__ . '/../../public/images/covers'; // 保存する物理パス
+    private const COVER_IMAGE_URL_BASE = '/images/covers';          // DBに保存し、HTMLで使うURLパス
+
     public function listComics() // 引数 $title は一旦削除 (クエリパラメータ処理は後述)
     {
         $titleFilter = $_GET['title'] ?? null; // GETパラメータからタイトルを取得
@@ -266,6 +271,97 @@ class ComicController
     }
 
     /**
+     * 画像をダウンロードしてローカルに保存するヘルパー関数
+     * @param string $imageUrl ダウンロード元URL
+     * @param string $savePath 保存先ファイルパス
+     * @return bool 成功した場合は true、失敗した場合は false
+     */
+    private function downloadAndSaveImage(string $imageUrl, string $savePath): bool
+    {
+        if (empty($imageUrl)) {
+            error_log("Image download skipped: URL is empty.");
+            return false;
+        }
+
+        // ファイルハンドルを開く前に、既存の0KBファイルを削除する（念のため）
+        if (file_exists($savePath) && filesize($savePath) === 0) {
+            unlink($savePath);
+            error_log("Removed existing 0KB file: {$savePath}");
+        }
+
+        $userAgent = 'MyComicApp/1.0 (+http://your-contact-page-or-email.com)';
+        $ch = curl_init($imageUrl);
+
+        // ファイルハンドルを開く
+        $fp = fopen($savePath, 'wb'); // 書き込み用にバイナリモードで開く
+        if (!$fp) {
+            error_log("Failed to open file for writing: {$savePath}");
+            curl_close($ch);
+            return false;
+        }
+
+        curl_setopt($ch, CURLOPT_HEADER, 0);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // falseにする (ファイルに直接書き込むため)
+        curl_setopt($ch, CURLOPT_TIMEOUT, 20); // 画像ダウンロードは少し長めに
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_FAILONERROR, true); // 4xx/5xxエラーで失敗とみなす
+        curl_setopt($ch, CURLOPT_USERAGENT, $userAgent);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true); // SSL検証は有効に
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+
+
+        error_log("Attempting to download image content from: {$imageUrl}");
+        $imageData = curl_exec($ch); // 画像データを変数に格納
+
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErrno = curl_errno($ch);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        // --- 判定を強化 ---
+        $finalSuccess = false;
+        if ($imageData !== false && $curlErrno === 0 && $httpCode < 400) {
+            // cURLダウンロード自体は成功し、画像データが取得できた場合
+            if (strlen($imageData) > 0) { // データが空でないことを確認
+                // file_put_contents でファイルに書き込む
+                error_log("Attempting to save image data to: {$savePath}");
+                if (file_put_contents($savePath, $imageData) !== false) {
+                    // 書き込み成功後、念のためファイルサイズを確認
+                    clearstatcache(true, $savePath);
+                    if (file_exists($savePath) && filesize($savePath) > 0) {
+                        $finalSuccess = true;
+                        error_log("Image saved successfully: {$savePath}, Size: " . filesize($savePath));
+                    } else {
+                        error_log("Image save failed (File check): File '{$savePath}' not found or is 0KB after file_put_contents.");
+                        if (file_exists($savePath))
+                            unlink($savePath); // 失敗したらファイルを削除
+                    }
+                } else {
+                    // file_put_contents が失敗した場合 (パーミッション等の可能性)
+                    error_log("Image save failed (file_put_contents error): Failed to write to '{$savePath}'. Check permissions.");
+                    if (file_exists($savePath))
+                        unlink($savePath); // 失敗したらファイルを削除
+                }
+            } else {
+                // HTTP 200 OK だが、応答ボディが空だった場合
+                error_log("Image download failed (Empty body): Received empty content from '{$imageUrl}' despite HTTP {$httpCode}.");
+                // ファイルは作成されないはずだが、念のため削除
+                if (file_exists($savePath))
+                    unlink($savePath);
+            }
+        } else {
+            // cURLが明確に失敗した場合
+            error_log("Image download failed (cURL error): URL='{$imageUrl}', CurlErrno={$curlErrno}, CurlError='{$curlError}', HTTPCode={$httpCode}");
+            // ファイルは作成されないはずだが、念のため削除
+            if (file_exists($savePath))
+                unlink($savePath);
+        }
+
+
+        return $finalSuccess;
+    }
+
+    /**
      * 複数の漫画情報をまとめてDBに保存するAPI
      * comics テーブルと volumes テーブルに登録・更新を行う
      */
@@ -291,15 +387,36 @@ class ComicController
 
         $comicsToSave = $data['comics'];
         if (empty($comicsToSave)) {
-             http_response_code(400);
-             echo json_encode(['error' => '保存する漫画データがありません。']);
-             return;
+            http_response_code(400);
+            echo json_encode(['error' => '保存する漫画データがありません。']);
+            return;
         }
 
         $db = Database::getConnection();
         $savedCount = 0;
         $skippedCount = 0;
         $errors = [];
+
+
+        // --- 画像保存ディレクトリの準備 ---
+        $coverImageDir = self::COVER_IMAGE_DIR_PATH;
+        if (!is_dir($coverImageDir)) {
+            // ディレクトリが存在しない場合、再帰的に作成
+            if (!mkdir($coverImageDir, 0775, true)) { // パーミッション注意
+                http_response_code(500);
+                error_log("Failed to create image directory: {$coverImageDir}");
+                echo json_encode(['error' => '画像保存ディレクトリの作成に失敗しました。サーバー管理者に連絡してください。']);
+                return; // ディレクトリが作れない場合は処理中断
+            }
+        }
+        // ディレクトリが書き込み可能かチェック (より確実に)
+        if (!is_writable($coverImageDir)) {
+            http_response_code(500);
+            error_log("Image directory is not writable: {$coverImageDir}");
+            echo json_encode(['error' => '画像保存ディレクトリに書き込みできません。サーバー管理者に連絡してください。']);
+            return; // 書き込めない場合は処理中断
+        }
+        // --- ディレクトリ準備ここまで ---
 
         // トランザクション開始
         $db->beginTransaction();
@@ -316,26 +433,26 @@ class ComicController
                     publisher = VALUES(publisher),
                     cover_image = VALUES(cover_image),
                     updated_at = NOW()"
-                 // description, publication_year, total_volumes, status はここでは更新しない
-                 // total_volumes は volumes 登録後に更新する可能性がある
+                // description, publication_year, total_volumes, status はここでは更新しない
+                // total_volumes は volumes 登録後に更新する可能性がある
             );
 
             // volumes テーブル: comic_id と volume_number が存在しなければ挿入 (存在すれば無視 or 更新)
             // INSERT IGNORE を使うと、重複キーエラーを無視して挿入しない
-             $volumeStmt = $db->prepare(
-                 "INSERT IGNORE INTO volumes (comic_id, volume_number, title, created_at, updated_at)
+            $volumeStmt = $db->prepare(
+                "INSERT IGNORE INTO volumes (comic_id, volume_number, title, created_at, updated_at)
                   VALUES (:comic_id, :volume_number, :title, NOW(), NOW())"
-                  // ON DUPLICATE KEY UPDATE title = VALUES(title), updated_at = NOW() // 更新もしたい場合
-             );
+                // ON DUPLICATE KEY UPDATE title = VALUES(title), updated_at = NOW() // 更新もしたい場合
+            );
 
-             // comics テーブルの total_volumes 更新用 (任意)
-             $updateTotalVolumesStmt = $db->prepare(
-                 "UPDATE comics SET total_volumes = GREATEST(total_volumes, :new_volume), updated_at = NOW()
+            // comics テーブルの total_volumes 更新用 (任意)
+            $updateTotalVolumesStmt = $db->prepare(
+                "UPDATE comics SET total_volumes = GREATEST(total_volumes, :new_volume), updated_at = NOW()
                   WHERE id = :comic_id"
-             );
+            );
 
-             // comics テーブルの ID 取得用
-             $selectComicIdStmt = $db->prepare("SELECT id FROM comics WHERE isbn = :isbn");
+            // comics テーブルの ID 取得用
+            $selectComicIdStmt = $db->prepare("SELECT id FROM comics WHERE isbn = :isbn");
 
 
             // 各漫画データを処理
@@ -347,10 +464,44 @@ class ComicController
                     continue;
                 }
                 if (empty($comic['title'])) {
-                     $errors[] = "ISBN {$comic['isbn']}: タイトルが空です。スキップします。";
-                     $skippedCount++;
-                     continue;
+                    $errors[] = "ISBN {$comic['isbn']}: タイトルが空です。スキップします。";
+                    $skippedCount++;
+                    continue;
                 }
+
+                // --- 画像ダウンロード処理 ---
+                $ndlCoverImageUrl = $comic['cover_image'] ?? null; // NDLサムネイルURL
+                $localCoverImageUrlPath = null; // DBに保存するパス (初期値 NULL)
+
+                if (!empty($ndlCoverImageUrl) && filter_var($ndlCoverImageUrl, FILTER_VALIDATE_URL)) {
+                    $imageFilename = $comic['isbn'] . '.jpg';
+                    $localSavePath = $coverImageDir . '/' . $imageFilename;
+
+                    if (!file_exists($localSavePath)) {
+                        // ↓↓↓ 出力バッファリング開始 ↓↓↓
+                        ob_start();
+                        $downloadSuccess = $this->downloadAndSaveImage($ndlCoverImageUrl, $localSavePath);
+                        // ↓↓↓ 出力バッファをクリア（画面に出力しない）↓↓↓
+                        ob_end_clean();
+
+                        if ($downloadSuccess) {
+                            // ダウンロード成功
+                            $localCoverImageUrlPath = self::COVER_IMAGE_URL_BASE . '/' . $imageFilename;
+                            error_log("Image downloaded successfully for ISBN {$comic['isbn']} to {$localSavePath}");
+                        } else {
+                            // ダウンロード失敗
+                            $errors[] = "ISBN {$comic['isbn']}: 書影画像のダウンロード/保存に失敗しました。URL: {$ndlCoverImageUrl}";
+                            error_log("Failed to download image for ISBN {$comic['isbn']} from {$ndlCoverImageUrl}");
+                        }
+                    } else {
+                        // 既にファイルが存在する場合
+                        $localCoverImageUrlPath = self::COVER_IMAGE_URL_BASE . '/' . $imageFilename;
+                        error_log("Image already exists locally for ISBN {$comic['isbn']}");
+                    }
+                } else {
+                    error_log("No valid cover image URL provided for ISBN {$comic['isbn']}");
+                }
+                // --- 画像ダウンロード処理ここまで ---
 
 
                 // 1. comics テーブルへの挿入または更新
@@ -359,8 +510,7 @@ class ComicController
                 $comicStmt->bindValue(':publisher', $comic['publisher'] ?? '出版社不明', PDO::PARAM_STR);
                 $comicStmt->bindValue(':isbn', $comic['isbn'], PDO::PARAM_STR);
                 // cover_image が空文字列の場合、NULLをDBに入れる
-                $comicStmt->bindValue(':cover_image', (!empty($comic['cover_image']) ? $comic['cover_image'] : null), PDO::PARAM_STR);
-
+                $comicStmt->bindValue(':cover_image', $localCoverImageUrlPath, PDO::PARAM_STR);
                 if (!$comicStmt->execute()) {
                     // comics テーブルへの保存失敗
                     $errors[] = "ISBN {$comic['isbn']}: 基本情報の保存に失敗しました。詳細: " . implode(' ', $comicStmt->errorInfo());
@@ -376,15 +526,15 @@ class ComicController
                 $comicRow = $selectComicIdStmt->fetch(PDO::FETCH_ASSOC);
                 $comicId = $comicRow['id'] ?? null; // PHP 7.0+
 
-                 if (!$comicId) {
-                     $errors[] = "ISBN {$comic['isbn']}: 保存後のID取得に失敗しました。";
-                     $skippedCount++;
-                     continue;
-                 }
+                if (!$comicId) {
+                    $errors[] = "ISBN {$comic['isbn']}: 保存後のID取得に失敗しました。";
+                    $skippedCount++;
+                    continue;
+                }
 
                 // 2. volumes テーブルへの挿入 (巻数情報がある場合)
                 if (isset($comic['volume']) && is_numeric($comic['volume'])) {
-                    $volumeNumber = (int)$comic['volume'];
+                    $volumeNumber = (int) $comic['volume'];
 
                     $volumeStmt->bindValue(':comic_id', $comicId, PDO::PARAM_INT);
                     $volumeStmt->bindValue(':volume_number', $volumeNumber, PDO::PARAM_INT);
@@ -393,20 +543,20 @@ class ComicController
 
                     if ($volumeStmt->execute()) {
                         if ($volumeStmt->rowCount() > 0) {
-                             // 新しい巻が挿入された場合のみカウント（任意）
-                             // $savedVolumeCount++;
+                            // 新しい巻が挿入された場合のみカウント（任意）
+                            // $savedVolumeCount++;
                         } else {
-                             // 挿入されなかった（既に存在した）場合
-                             // $existingVolumeCount++;
+                            // 挿入されなかった（既に存在した）場合
+                            // $existingVolumeCount++;
                         }
 
-                         // 任意: comics.total_volumes を更新
-                         $updateTotalVolumesStmt->bindValue(':new_volume', $volumeNumber, PDO::PARAM_INT);
-                         $updateTotalVolumesStmt->bindValue(':comic_id', $comicId, PDO::PARAM_INT);
-                         if (!$updateTotalVolumesStmt->execute()) {
-                             $errors[] = "ISBN {$comic['isbn']}, Volume {$volumeNumber}: 総巻数の更新に失敗しました。";
-                             // これは致命的ではないのでエラー記録のみ
-                         }
+                        // 任意: comics.total_volumes を更新
+                        $updateTotalVolumesStmt->bindValue(':new_volume', $volumeNumber, PDO::PARAM_INT);
+                        $updateTotalVolumesStmt->bindValue(':comic_id', $comicId, PDO::PARAM_INT);
+                        if (!$updateTotalVolumesStmt->execute()) {
+                            $errors[] = "ISBN {$comic['isbn']}, Volume {$volumeNumber}: 総巻数の更新に失敗しました。";
+                            // これは致命的ではないのでエラー記録のみ
+                        }
 
                     } else {
                         $errors[] = "ISBN {$comic['isbn']}, Volume {$volumeNumber}: 巻数情報の保存に失敗しました。詳細: " . implode(' ', $volumeStmt->errorInfo());
@@ -432,16 +582,16 @@ class ComicController
                 if ($skippedCount > 0) {
                     $message .= ' (' . $skippedCount . '件はスキップされました)';
                 }
-                 echo json_encode(['message' => $message]);
+                echo json_encode(['message' => $message]);
             } else {
                 // 何らかのエラーがあった場合 (部分的な成功でもロールバックする方針)
                 $db->rollBack();
                 http_response_code(400); // Bad Request (or 500 if critical)
-                 // ユーザーに見せるエラーメッセージを生成
-                 $userErrorMessage = $savedCount . '件の処理を試みましたが、' . count($errors) . '件のエラーが発生したため、全ての変更を元に戻しました。';
-                 if ($skippedCount > 0) {
-                     $userErrorMessage .= ' また、' . $skippedCount . '件は処理前にスキップされました。';
-                 }
+                // ユーザーに見せるエラーメッセージを生成
+                $userErrorMessage = $savedCount . '件の処理を試みましたが、' . count($errors) . '件のエラーが発生したため、全ての変更を元に戻しました。';
+                if ($skippedCount > 0) {
+                    $userErrorMessage .= ' また、' . $skippedCount . '件は処理前にスキップされました。';
+                }
 
                 echo json_encode([
                     'error' => $userErrorMessage,
