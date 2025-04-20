@@ -1,0 +1,64 @@
+# comic/docker-compose.yml
+
+services:
+  php:
+    build: ./docker/php
+    # ports: # Nginxが代わりに行うため削除
+    #  - "80:80"
+    volumes:
+      - ./src:/var/www/html/src
+      - ./public:/var/www/html/public # publicも必要
+      - ./views:/var/www/html/views
+      - ./config:/var/www/html/config
+      - ./migrate.php:/var/www/html/migrate.php
+      - ./migrations:/var/www/html/migrations # <- この行を追加
+    environment:
+      MYSQL_HOST: db
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    depends_on: # DB起動後にPHPが起動するように設定 (任意)
+      - db
+    working_dir: /var/www/html
+
+  # Nginx サービスを追加
+  nginx:
+    image: nginx:alpine # 軽量なNginxイメージを使用
+    ports:
+      - "80:80" # ホストのポート80をNginxコンテナのポート80に接続
+    volumes:
+      # アプリケーションの public ディレクトリをマウント
+      - ./public:/var/www/html/public
+      # 作成したNginx設定ファイルをマウント
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      # ログを永続化したい場合 (任意)
+      # - ./docker/nginx/logs:/var/log/nginx
+    depends_on:
+      - php # PHPコンテナが起動してからNginxが起動するように設定
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3306:3306"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "8080:80" # phpMyAdminはポート8080のまま
+    depends_on:
+      - db
+
+volumes:
+  mysql_data:
