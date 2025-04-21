@@ -71,6 +71,10 @@ $router->addRoute('POST', '/login', [AuthController::class, 'login']);
 $router->addRoute('GET', '/logout', [AuthController::class, 'logout']); // Add this line
 $router->addRoute('GET', '/comic_list', [ComicController::class, 'listComics']);
 
+// ↓↓↓ OCR処理用ルートを追加 ↓↓↓
+$router->addRoute('POST', '/api/ocr_receipt', [ComicController::class, 'processReceiptOcr']);
+// ↑↑↑ OCR処理用ルート追加ここまで ↑↑↑
+
 
 // --- ここから追加 ---
 // 漫画登録画面表示

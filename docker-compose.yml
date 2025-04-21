@@ -60,5 +60,20 @@ services:
     depends_on:
       - db
 
+  # ↓↓↓ OCRサービスを追加 ↓↓↓
+  ocr_service:
+    build: ./ocr_service # ocr_service ディレクトリの Dockerfile を使う
+    container_name: ocr_service # コンテナ名を指定 (任意)
+    restart: unless-stopped
+    # ポートを公開して直接テスト可能にする (任意)
+    # ports:
+    #   - "5001:5000" # ホストの5001番をコンテナの5000番に接続
+    volumes:
+      # 開発時にコード変更を即時反映させたい場合 (任意)
+      - ./ocr_service:/app
+    # environment: # 必要に応じて環境変数を設定
+      # TESSDATA_PREFIX: /usr/share/tesseract-ocr/4.00/tessdata # Tesseractデータパス (通常不要)
+  # ↑↑↑ OCRサービス追加ここまで ↑↑↑
+
 volumes:
   mysql_data:
