@@ -71,6 +71,10 @@ $router->addRoute('POST', '/login', [AuthController::class, 'login']);
 $router->addRoute('GET', '/logout', [AuthController::class, 'logout']); // Add this line
 $router->addRoute('GET', '/comic_list', [ComicController::class, 'listComics']);
 
+// ↓↓↓ OCR処理用ルートを追加 ↓↓↓
+$router->addRoute('POST', '/api/ocr_receipt', [ComicController::class, 'processReceiptOcr']);
+// ↑↑↑ OCR処理用ルート追加ここまで ↑↑↑
+
 
 // --- ここから追加 ---
 // 漫画登録画面表示
@@ -79,6 +83,16 @@ $router->addRoute('GET', '/comic_register', [ComicController::class, 'showRegist
 $router->addRoute('GET', '/api/fetch_comic_info', [ComicController::class, 'fetchComicInfo']);
 // 登録する漫画情報をDBに保存 (APIエンドポイント)
 $router->addRoute('POST', '/api/save_comics', [ComicController::class, 'saveComics']);
+
+// ===>>> NEW ROUTE FOR NEW RELEASES <<<===
+$router->addRoute('GET', '/new-releases', [ComicController::class, 'showNewReleasesPage']);
+// ===>>> END OF NEW ROUTE <<<===
+
+// ===>>> NEW: シリーズ一括取得APIルート <<<===
+$router->addRoute('POST', '/api/fetch_series_info', [ComicController::class, 'fetchSeriesByTitleAndVolumeRange']);
+// ===>>> END OF NEW ROUTE <<<===
+
+
 // --- 追加ここまで ---
 
 

@@ -219,14 +219,18 @@
                 漫画登録
             </a>
             <a href="/new-releases" class="action-btn" aria-label="新刊発売日確認へ移動">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="currentColor" class="bi bi-calendar-month" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M2.56 11.332L3.43 10h1.142L3.43 11.332zM3.43 12.417l-.87-1.085h1.74l-.87 1.085zM5.66 10H4.528l.87-1.332L4.528 10zm-.87 1.332L5.66 10h1.142L5.66 11.332zm1.983-.666h1.142L7.073 10l.87 1.332.87-1.332h1.141l-.87 1.332.87 1.085h-1.142l-.87-1.085-.87 1.085H6.793l.87-1.085zM11 10.5a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1 0-1h1a.5.5 0 0 1 .5.5m-2.5.5a.5.5 0 0 1 0-1h1a.5.5 0 0 1 0 1z"/>
+                    <path d="M4 .5a.5.5 0 0 0-1 0V1H2a2 2 0 0 0-2 2v1h16V3a2 2 0 0 0-2-2h-1V.5a.5.5 0 0 0-1 0V1H4zM16 14V5H0v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2M8.5 6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM7 9h2v2H7zm4 0h2v2h-2z"/>
+                </svg>
                 新刊発売日
             </a>
-        </nav>
+            </nav>
     </main>
 
     <footer>
         <div class="container">
-            <p>&copy; 2025 漫画管理システム</p>
+            <p>&copy; <?php echo date("Y"); ?> 漫画管理システム</p>
         </div>
     </footer>
 </body>
