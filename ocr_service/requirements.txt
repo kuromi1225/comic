@@ -1,0 +1,4 @@
+Flask>=2.0 # Webフレームワーク
+pytesseract>=0.3 # Tesseract OCRのPythonラッパー
+Pillow>=9.0 # 画像処理ライブラリ (pytesseractが必要とする)
+requests>=2.0 # (今回は不要だが、将来的に使う可能性)

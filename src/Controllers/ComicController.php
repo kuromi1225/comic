@@ -448,6 +448,100 @@ class ComicController
         // Optional: Add login check if this API should be protected
         // if (!isset($_SESSION['user_id'])) { ... }
 
+        // ログインチェックは必要に応じて追加
+
+        // --- ファイルアップロード処理 ---
+        // PHPの標準的な方法 ($_FILES を使用)
+        if (!isset($_FILES['receiptImage']) || $_FILES['receiptImage']['error'] !== UPLOAD_ERR_OK) {
+            http_response_code(400);
+            $errorMessage = '画像ファイルがアップロードされていないか、アップロード中にエラーが発生しました。';
+            if (isset($_FILES['receiptImage']['error'])) {
+                 // PHPのアップロードエラーコードに基づいてメッセージを具体化 (任意)
+                 switch ($_FILES['receiptImage']['error']) {
+                     case UPLOAD_ERR_INI_SIZE:
+                     case UPLOAD_ERR_FORM_SIZE:
+                         $errorMessage = 'ファイルサイズが大きすぎます。';
+                         break;
+                     case UPLOAD_ERR_NO_FILE:
+                         $errorMessage = 'ファイルが選択されていません。';
+                         break;
+                     default:
+                         $errorMessage .= ' (エラーコード: ' . $_FILES['receiptImage']['error'] . ')';
+                 }
+            }
+            error_log("Receipt upload error: " . $errorMessage);
+            echo json_encode(['error' => $errorMessage]);
+            return;
+        }
+
+        $uploadedFile = $_FILES['receiptImage'];
+        $filePath = $uploadedFile['tmp_name']; // PHPが一時的に保存したパス
+        $fileName = $uploadedFile['name'];
+        $fileType = $uploadedFile['type'];
+
+        // 画像ファイルかどうかの簡易チェック (MIMEタイプ)
+        if (strpos($fileType, 'image/') !== 0) {
+            http_response_code(400);
+            error_log("Uploaded file is not an image: " . $fileType);
+            echo json_encode(['error' => '画像ファイル形式が無効です。']);
+            return;
+        }
+        // --- ファイルアップロード処理ここまで ---
+
+
+        // --- Python OCRサービスへのリクエスト ---
+        // docker-compose.yml で定義したサービス名 'ocr_service' とポート 5000 を使用
+        $ocrServiceUrl = 'http://ocr_service:5000/ocr';
+        error_log("Forwarding image to OCR service: " . $ocrServiceUrl);
+
+        $curl = curl_init();
+        // cURLFile を使うのが推奨される方法
+        // PHP 5.5.0 以降で利用可能
+        if (function_exists('curl_file_create')) {
+            $cfile = curl_file_create($filePath, $fileType, $fileName);
+        } else { // 旧バージョン用 (非推奨)
+            $cfile = '@' . realpath($filePath) . ';filename=' . $fileName . ';type=' . $fileType;
+        }
+        $postData = ['file' => $cfile];
+
+        curl_setopt($curl, CURLOPT_URL, $ocrServiceUrl);
+        curl_setopt($curl, CURLOPT_POST, true);
+        curl_setopt($curl, CURLOPT_POSTFIELDS, $postData);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curl, CURLOPT_TIMEOUT, 60); // OCR処理は時間がかかる可能性があるので長めに
+        // curl_setopt($curl, CURLOPT_VERBOSE, true); // デバッグ用
+
+        $responseJson = curl_exec($curl);
+        $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        $curlErrno = curl_errno($curl);
+        $curlError = curl_error($curl);
+        curl_close($curl);
+
+        // --- OCRサービスからのレスポンス処理 ---
+        if ($curlErrno > 0 || $httpCode >= 400 || $responseJson === false) {
+            http_response_code(502); // Bad Gateway (上流サーバーからのエラー)
+            $errorMessage = "OCRサービスへの接続または処理中にエラーが発生しました。";
+            error_log("Error communicating with OCR service: CurlErrno={$curlErrno}, CurlError='{$curlError}', HTTPCode={$httpCode}, Response: " . $responseJson);
+             if ($httpCode === 0 || $curlErrno > 0) {
+                 $errorMessage = "OCRサービスに接続できませんでした。";
+             } else if ($httpCode >= 400) {
+                  // OCRサービスがエラーJSONを返しているか試す
+                  $responseData = json_decode($responseJson, true);
+                  if ($responseData && isset($responseData['error'])) {
+                      $errorMessage = "OCRサービスエラー({$httpCode}): " . $responseData['error'];
+                  } else {
+                      $errorMessage = "OCRサービスがエラー({$httpCode})を返しました。";
+                  }
+             }
+            echo json_encode(['error' => $errorMessage]);
+            return;
+        }
+
+        // OCRサービスからのレスポンスをそのままブラウザに返す
+        // Content-Type は既に application/json のはず
+        echo $responseJson;
+    }
+
         if (!isset($_FILES['receiptImage']) || $_FILES['receiptImage']['error'] !== UPLOAD_ERR_OK) {
             http_response_code(400);
             $errorMessage = '画像ファイルがアップロードされていないか、アップロード中にエラーが発生しました。';

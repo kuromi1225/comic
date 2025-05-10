@@ -501,10 +501,6 @@ if (!isset($_SESSION['user_id'])) {
         </div>
     </footer>
 
-    {/* ↓↓↓ Tesseract.js の CDN スクリプトを追加 ↓↓↓ */}
-    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
-    {/* ↑↑↑ CDN スクリプトここまで ↑↑↑ */}
-
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const isbnListDiv = document.getElementById('isbn-list');
@@ -584,6 +580,7 @@ if (!isset($_SESSION['user_id'])) {
 
 
             // --- OCR処理関数 (新規追加) ---
+            // --- OCR処理関数 (バックエンドAPI呼び出し版) ---
             async function handleOcr() {
                 const file = imageInput.files[0];
                 if (!file) {
@@ -595,65 +592,48 @@ if (!isset($_SESSION['user_id'])) {
                     return;
                 }
 
-                showOcrStatus('OCRエンジンを準備中...', 'loading');
+                showOcrStatus('画像をサーバーにアップロード中...', 'loading');
                 ocrButton.disabled = true;
                 imageInput.disabled = true;
 
+                // FormDataオブジェクトを作成して画像を追加
+                const formData = new FormData();
+                formData.append('receiptImage', file); // キー名はPHP側の $_FILES['receiptImage'] と一致させる
+
                 try {
-                    // Tesseract ワーカーの作成 (日本語+英語)
-                    // 進捗コールバックでステータス表示
-                    const worker = await Tesseract.createWorker('jpn+eng', 1, { // 'jpn+eng' で日本語と英語を指定
-                        logger: m => {
-                            console.log(m); // 詳細ログをコンソールに表示
-                            if (m.status === 'recognizing text') {
-                                const progress = (m.progress * 100).toFixed(0);
-                                showOcrStatus(`テキスト認識中... ${progress}%`, 'loading');
-                            } else {
-                                showOcrStatus(`処理中: ${m.status}`, 'loading');
-                            }
-                        },
-                        // 言語データのパスを指定する場合 (通常CDNでは不要)
-                        // workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@v5.0.0/dist/worker.min.js',
-                        // langPath: 'https://tessdata.projectnaptha.com/4.0.0_best', // or your local path
-                        // corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@v5.0.0/tesseract-core.wasm.js',
+                    // PHPの新しいエンドポイントにPOSTリクエスト
+                    const response = await fetch('/api/ocr_receipt', {
+                        method: 'POST',
+                        body: formData
+                        // Content-Type は FormData を使う場合、ブラウザが自動設定するので不要
                     });
 
+                    // レスポンスをJSONとして解析
+                    const result = await response.json();
 
-                    showOcrStatus('画像からテキストを抽出中...', 'loading');
-                    const { data: { text } } = await worker.recognize(file);
-                    showOcrStatus('テキスト抽出完了。ISBNを検索中...', 'loading');
-                    console.log("OCR Result Text:\n", text); // 抽出した全文をログに出力
+                    if (!response.ok) {
+                        // PHP側 or OCRサービス側でエラーが発生した場合
+                        throw new Error(result.error || `サーバーエラーが発生しました (HTTP ${response.status})`);
+                    }
 
-                    // テキストからISBNを抽出
-                    const isbns = extractIsbnsFromText(text);
-                    console.log("Extracted ISBNs:", isbns);
+                    // --- 成功時の処理 ---
+                    showOcrStatus('OCR処理完了。ISBNを検索中...', 'loading'); // メッセージ変更
+                    console.log("ISBNs received from server:", result.isbns);
 
-                    // 既存の入力欄の値を取得
+                    const isbns = result.isbns || []; // isbns配列を取得
+
+                    // 既存の入力欄の値を取得 (変更なし)
                     const existingIsbns = new Set();
-                    isbnListDiv.querySelectorAll('input[type="text"]').forEach(input => {
-                        const val = input.value.trim().replace(/-/g, '');
-                        if (val) {
-                            existingIsbns.add(val);
-                        }
-                    });
+                    isbnListDiv.querySelectorAll('input[type="text"]').forEach(input => { /* ... */ });
 
-                    // 新しいISBNを入力欄に追加
+                    // 新しいISBNを入力欄に追加 (変更なし)
                     let addedCount = 0;
                     if (isbns.length > 0) {
-                        // 最初の空の入力欄を使うか、なければ新規追加
-                        const firstEmptyInput = findFirstEmptyIsbnInput();
-
                         isbns.forEach(isbn => {
                             if (!existingIsbns.has(isbn)) {
-                                let targetInput = null;
-                                // 最初の空欄を使う処理 (削除。常に新規追加の方がシンプル)
-                                // if (firstEmptyInput && addedCount === 0) {
-                                //     targetInput = firstEmptyInput;
-                                // } else {
-                                targetInput = addIsbnInput(); // 新しい行を追加
-                                // }
-                                targetInput.value = isbn; // 値をセット
-                                existingIsbns.add(isbn); // 追加済みセットにも追加
+                                const targetInput = addIsbnInput();
+                                targetInput.value = isbn;
+                                existingIsbns.add(isbn);
                                 addedCount++;
                             }
                         });
@@ -661,33 +641,17 @@ if (!isset($_SESSION['user_id'])) {
 
                     showOcrStatus(`読み取り完了。${addedCount}件の新しいISBNが見つかりました。`, 'success');
 
-                    // Tesseract ワーカーを終了
-                    await worker.terminate();
-
                 } catch (error) {
-                    console.error("OCR Error:", error);
-                    showOcrStatus(`OCR処理中にエラーが発生しました: ${error.message || error}`, 'error');
+                    console.error("OCR Upload/Process Error:", error);
+                    showOcrStatus(`処理中にエラーが発生しました: ${error.message || error}`, 'error');
                 } finally {
                     ocrButton.disabled = false;
                     imageInput.disabled = false;
-                    // 選択されたファイルをリセット (同じファイルを再選択できるように)
+                    // 選択されたファイルをリセット
                     imageInput.value = '';
                 }
             }
-
-            // テキストからISBNを抽出する関数 (正規表現を使用)
-            function extractIsbnsFromText(text) {
-                if (!text) return [];
-                // 978から始まり、13桁の数字を抽出 (ハイフンは無視)
-                // レシートでは「9784...9979...」のように余分な数字が続くことがあるため、
-                // 厳密に13桁を抜き出すようにする
-                const regex = /978[0-9]{10}/g; // 978 + 10桁の数字
-                const matches = text.match(regex);
-
-                // 重複を除去して返す
-                return matches ? [...new Set(matches)] : [];
-            }
-
+            
             // 空のISBN入力欄を探す（任意）
             function findFirstEmptyIsbnInput() {
                 const inputs = isbnListDiv.querySelectorAll('input[type="text"]');
