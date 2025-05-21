@@ -1,69 +1,69 @@
-# Comic Collection Manager
+# コミックコレクション管理
 
-![Banner](public/banner.png)
+![バナー](public/banner.png)
 
-## Short Description
+## 概要
 
-A web application to manage your comic book collection, featuring OCR for receipt processing, new release tracking, and more.
+レシートのOCR処理、新刊情報の追跡などの機能を備えた、あなたの漫画コレクションを管理するためのウェブアプリケーションです。
 
-## Table of Contents
+## 目次
 
-- [Project Title](#project-title)
-- [Banner](#banner)
-- [Short Description](#short-description)
-- [Table of Contents](#table-of-contents)
-- [Features](#features)
-- [Technology Stack](#technology-stack)
-- [System Architecture Overview](#system-architecture-overview)
-- [Prerequisites](#prerequisites)
-- [Installation and Setup](#installation-and-setup)
-- [Database Setup](#database-setup)
-- [Running the Application](#running-the-application)
-- [Key Functionalities (Usage Examples)](#key-functionalities-usage-examples)
-- [OCR Service Details](#ocr-service-details)
-- [Environment Variables](#environment-variables)
-- [Contributing](#contributing)
-- [License](#license)
+- [プロジェクトタイトル](#プロジェクトタイトル)
+- [バナー](#バナー)
+- [概要](#概要)
+- [目次](#目次)
+- [主な機能](#主な機能)
+- [技術スタック](#技術スタック)
+- [システムアーキテクチャ概要](#システムアーキテクチャ概要)
+- [前提条件](#前提条件)
+- [インストールとセットアップ](#インストールとセットアップ)
+- [データベース設定](#データベース設定)
+- [アプリケーションの実行](#アプリケーションの実行)
+- [主要な機能（使用例）](#主要な機能使用例)
+- [OCRサービス詳細](#ocrサービス詳細)
+- [環境変数](#環境変数)
+- [貢献](#貢献)
+- [ライセンス](#ライセンス)
 
-## Features
+## 主な機能
 
-- User Authentication (Login/Logout)
-- Comic Book Management (Listing, Registering new comics)
-- Automated comic data fetching from National Diet Library (NDL) using ISBN
-- Cover image display
-- Volume Management for comic series
-- OCR Receipt Processing for quick purchase logging
-- New Release Calendar with data scraped from "コミック発売日カレンダー"
-- Series Fetching by Title/Volume
+- ユーザー認証（ログイン/ログアウト）
+- 漫画管理（一覧表示、新規漫画登録）
+- ISBNを使用した国立国会図書館（NDL）からの漫画データ自動取得
+- 表紙画像表示
+- 漫画シリーズの巻数管理
+- 購入履歴を素早く記録するためのOCRレシート処理
+- 「コミック発売日カレンダー」からスクレイピングしたデータによる新刊カレンダー
+- タイトル/巻数によるシリーズ検索
 
-## Technology Stack
+## 技術スタック
 
-- **Backend:** PHP (Custom MVC Structure)
-- **Frontend:** HTML, CSS, JavaScript
-- **Database:** MySQL
-- **Web Server:** Nginx
-- **Containerization:** Docker, Docker Compose
-- **OCR Service:** Python (Flask), Tesseract OCR
+- **バックエンド:** PHP (カスタムMVC構造)
+- **フロントエンド:** HTML, CSS, JavaScript
+- **データベース:** MySQL
+- **ウェブサーバー:** Nginx
+- **コンテナ化:** Docker, Docker Compose
+- **OCRサービス:** Python (Flask), Tesseract OCR
 
-## System Architecture Overview
+## システムアーキテクチャ概要
 
-The application is a monolithic PHP application using a custom MVC structure, serving both as a web frontend and an API backend. It interacts with a MySQL database for data storage. An external OCR service, built with Python (Flask) and Tesseract, is used to process uploaded receipt images. Nginx acts as the web server. The entire system is containerized using Docker and managed with Docker Compose.
+このアプリケーションは、カスタムMVC構造を使用したモノリシックなPHPアプリケーションであり、ウェブフロントエンドとAPIバックエンドの両方を提供します。データストレージとしてMySQLデータベースと連携します。アップロードされたレシート画像を処理するために、Python (Flask) と Tesseract で構築された外部OCRサービスが使用されます。Nginxがウェブサーバーとして機能します。システム全体はDockerを使用してコンテナ化され、Docker Composeによって管理されます。
 
-## Prerequisites
+## 前提条件
 
 - Docker
 - Docker Compose
 
-## Installation and Setup
+## インストールとセットアップ
 
-1.  **Clone the repository:**
+1.  **リポジトリをクローンします:**
     ```bash
     git clone <repository-url>
     cd <repository-name>
     ```
 
-2.  **Configure Environment Variables:**
-    Create a `.env` file by copying `.env.example` (if it exists). If not, create a new `.env` file and add the following variables, updating them according to your environment. These variables are used by the `php` service in `docker-compose.yml` and `config/database.php`.
+2.  **環境変数を設定します:**
+    `.env.example` ファイルが存在する場合はコピーして `.env` ファイルを作成します。存在しない場合は、新しい `.env` ファイルを作成し、以下の変数を追加して、ご自身の環境に合わせて更新してください。これらの変数は `docker-compose.yml` の `php` サービスおよび `config/database.php` で使用されます。
 
     ```env
     # Database Credentials (as used by docker-compose.yml and config/database.php)
@@ -74,109 +74,109 @@ The application is a monolithic PHP application using a custom MVC structure, se
     MYSQL_ROOT_PASSWORD=supersecretpassword 
     # Note: MYSQL_ROOT_PASSWORD is for the db service itself, not directly used by the PHP app's config/database.php but essential for phpMyAdmin and DB initialization.
     ```
-    **Note:** The PHP application itself reads `MYSQL_HOST`, `MYSQL_DATABASE`, `MYSQL_USER`, and `MYSQL_PASSWORD` via `getenv()` in `config/database.php`. Ensure these match your desired setup. There are no Laravel-specific variables like `APP_KEY` used.
+    **注:** PHPアプリケーション自体は `config/database.php` 内の `getenv()` を介して `MYSQL_HOST`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD` を読み取ります。これらが希望する設定と一致することを確認してください。`APP_KEY` のようなLaravel固有の変数は使用されていません。
 
-3.  **Start the application containers:**
+3.  **アプリケーションコンテナを起動します:**
     ```bash
     docker-compose up -d
     ```
 
-## Database Setup
+## データベース設定
 
-The application uses a custom migration script.
+アプリケーションはカスタムマイグレーションスクリプトを使用します。
 
-1.  **Run Migrations:**
-    To set up the database tables, execute the following command after the containers are running (ensure `migrate.php` and the `migrations/` directory are present):
+1.  **マイグレーションを実行します:**
+    データベーステーブルをセットアップするには、コンテナが実行された後、以下のコマンドを実行します（`migrate.php` と `migrations/` ディレクトリが存在することを確認してください）:
     ```bash
     docker-compose exec php php migrate.php
     ```
 
-2.  **Initial Admin User:**
-    The database seeder creates an initial admin user with the following username:
-    -   **Username:** `makkenro`
+2.  **初期管理者ユーザー:**
+    データベースシーダーは、以下のユーザー名で初期管理者ユーザーを作成します:
+    -   **ユーザー名:** `makkenro`
 
-    The password for this user is hashed in the database. If you cannot log in with a common development password, you may need to:
-    *   Update the password directly in the `users` table in the database.
-    *   Implement a password reset functionality if it's not already available.
-    The `.env` file credentials (`DB_USERNAME`, `DB_PASSWORD`) are for the MySQL database connection, not for application user login.
+    このユーザーのパスワードはデータベース内でハッシュ化されています。一般的な開発用パスワードでログインできない場合は、以下のいずれかの対応が必要になる場合があります:
+    *   データベースの `users` テーブルでパスワードを直接更新する。
+    *   パスワードリセット機能がまだ利用できない場合は実装する。
+    `.env` ファイルの認証情報 (`DB_USERNAME`, `DB_PASSWORD`) はMySQLデータベース接続用であり、アプリケーションユーザーのログイン用ではありません。
 
-## Running the Application
+## アプリケーションの実行
 
--   **Access URL:** Once the containers are up and running, you can access the application at [http://localhost](http://localhost) (Nginx is configured to listen on port 80).
--   **Default Login:** Use the `makkenro` user credentials to log in. (The method for setting/managing this password should be verified, e.g., via database seeding or a specific configuration).
+-   **アクセスURL:** コンテナが起動したら、[http://localhost](http://localhost) でアプリケーションにアクセスできます（Nginxはポート80でリッスンするように設定されています）。
+-   **デフォルトログイン:** `makkenro` ユーザーの認証情報を使用してログインします。（このパスワードの設定・管理方法は、データベースのシーディングや特定の設定などを通じて確認する必要があります）。
 
-## Key Functionalities (Usage Examples)
+## 主要な機能（使用例）
 
-Routes are based on `src/Controllers/ComicController.php` methods and common MVC patterns. Consult `src/Core/Router.php` and its usage in the application's entry point (likely `public/index.php`, not provided) for definitive route definitions.
+ルートは `src/Controllers/ComicController.php` のメソッドと一般的なMVCパターンに基づいています。確定的なルート定義については、`src/Core/Router.php` およびアプリケーションのエントリポイント（通常は `public/index.php`、提供されていません）でのその使用法を参照してください。
 
--   **User Authentication:**
-    -   Login: `/login` (Assumed standard)
-    -   Logout: `/logout` (Assumed standard)
+-   **ユーザー認証:**
+    -   ログイン: `/login` (標準と想定)
+    -   ログアウト: `/logout` (標準と想定)
 
--   **Comic Management:**
-    -   List Comics: `/comics` (GET - `ComicController::listComics`)
-    -   Show Registration Form: `/comics/register` (GET - `ComicController::showRegisterForm`)
-    -   Save New Comic(s): `/comics/save` (POST - `ComicController::saveComics`)
-    -   Fetch from NDL via ISBN (on registration form): The application uses the National Diet Library (NDL) OpenSearch API (hardcoded URL: `https://iss.ndl.go.jp/api/opensearch`) via `ComicController::fetchComicInfo` (likely triggered by a GET request from JavaScript on the registration page, e.g., to a route like `/comics/fetch-ndl-info?isbn=...`).
-    -   Cover Images: Displayed on comic list and detail pages.
+-   **漫画管理:**
+    -   漫画一覧: `/comics` (GET - `ComicController::listComics`)
+    -   登録フォーム表示: `/comics/register` (GET - `ComicController::showRegisterForm`)
+    -   新規漫画保存: `/comics/save` (POST - `ComicController::saveComics`)
+    -   NDLからISBNで情報取得（登録フォーム上）: アプリケーションは国立国会図書館（NDL）OpenSearch API（ハードコードされたURL: `https://iss.ndl.go.jp/api/opensearch`）を `ComicController::fetchComicInfo` 経由で使用します（登録ページのJavaScriptからのGETリクエスト、例: `/comics/fetch-ndl-info?isbn=...` のようなルートでトリガーされる可能性が高い）。
+    -   表紙画像: 漫画一覧ページや詳細ページに表示されます。
 
--   **Volume Management:**
-    -   Managed as part of comic registration and updates.
+-   **巻数管理:**
+    -   漫画の登録および更新の一部として管理されます。
 
--   **OCR Receipt Processing:**
-    -   Workflow: Upload a receipt image on the relevant page. The backend (PHP) sends it to the Python OCR service (`http://ocr_service:5000/ocr` - hardcoded in `ComicController.php`). The OCR service returns extracted ISBNs.
-    -   Upload URL: `/comics/ocr` (POST - `ComicController::processReceiptOcr`)
+-   **OCRレシート処理:**
+    -   ワークフロー: 関連ページでレシート画像をアップロードします。バックエンド（PHP）はそれをPython OCRサービス（`ComicController.php` でハードコードされた `http://ocr_service:5000/ocr`）に送信します。OCRサービスは抽出されたISBNを返します。
+    -   アップロードURL: `/comics/ocr` (POST - `ComicController::processReceiptOcr`)
 
--   **New Release Calendar:**
-    -   Scraping Source: Data is scraped from "hon-hikidashi.jp" (URL constructed in `ComicController::scrapeHonHikidashi`).
-    -   Caching: Release data is cached in the `new_releases` database table.
-    -   Access URL: `/new-releases` (GET - `ComicController::showNewReleasesPage`)
+-   **新刊カレンダー:**
+    -   スクレイピング元: データは「hon-hikidashi.jp」からスクレイピングされます（URLは `ComicController::scrapeHonHikidashi` で構築）。
+    -   キャッシュ: リリースデータは `new_releases` データベーステーブルにキャッシュされます。
+    -   アクセスURL: `/new-releases` (GET - `ComicController::showNewReleasesPage`)
 
--   **Series Fetching by Title/Volume Range (API-like):**
+-   **タイトルと巻数範囲によるシリーズ検索（API風）:**
     -   URL: `/api/comics/fetch-series` (POST - `ComicController::fetchSeriesByTitleAndVolumeRange`)
-    -   Payload Example: `{ "title": "One Piece", "startVolume": "1", "endVolume": "10" }`
+    -   ペイロード例: `{ "title": "One Piece", "startVolume": "1", "endVolume": "10" }`
 
--   **Fetch Single Comic Info by ISBN (API-like):**
+-   **ISBNによる単一漫画情報取得（API風）:**
     -   URL: `/api/comics/info?isbn=...` (GET - `ComicController::fetchComicInfoByIsbnPublic`)
 
 
-## OCR Service Details
+## OCRサービス詳細
 
--   **Purpose:** The OCR (Optical Character Recognition) service extracts ISBNs from uploaded receipt images.
--   **Internal API Endpoint for PHP app:** The PHP application communicates with the OCR service (running in the `ocr_service` Docker container) via its internal network URL: `http://ocr_service:5000/ocr`. This URL is currently hardcoded in `ComicController.php`.
--   **Input:** Image file (e.g., JPEG, PNG) sent as part of a multipart/form-data POST request.
--   **Output:** JSON object containing extracted ISBNs. Example:
+-   **目的:** OCR（光学文字認識）サービスは、アップロードされたレシート画像からISBNを抽出します。
+-   **PHPアプリ用内部APIエンドポイント:** PHPアプリケーションは、（`ocr_service` Dockerコンテナ内で実行されている）OCRサービスと、その内部ネットワークURL `http://ocr_service:5000/ocr` を介して通信します。このURLは現在 `ComicController.php` にハードコードされています。
+-   **入力:** multipart/form-data POSTリクエストの一部として送信される画像ファイル（例: JPEG, PNG）。
+-   **出力:** 抽出されたISBNを含むJSONオブジェクト。例:
     ```json
     {
       "isbns": ["9784088824225", "9784088825246"]
     }
     ```
 
-## Environment Variables
+## 環境変数
 
-The following environment variables are used to configure the application, primarily for database connection. These should be defined in a `.env` file at the root of the project.
+以下の環境変数は、主にデータベース接続のためにアプリケーションを設定するために使用されます。これらはプロジェクトのルートにある `.env` ファイルで定義する必要があります。
 
--   `MYSQL_HOST`: Hostname for the MySQL database server (e.g., `db` when using Docker Compose).
--   `MYSQL_DATABASE`: Name of the database to use.
--   `MYSQL_USER`: Username for connecting to the database.
--   `MYSQL_PASSWORD`: Password for the database user.
--   `MYSQL_ROOT_PASSWORD`: Root password for the MySQL server (used by the `db` service in `docker-compose.yml` and for phpMyAdmin).
+-   `MYSQL_HOST`: MySQLデータベースサーバーのホスト名（Docker Compose使用時の `db` など）。
+-   `MYSQL_DATABASE`: 使用するデータベースの名前。
+-   `MYSQL_USER`: データベース接続用のユーザー名。
+-   `MYSQL_PASSWORD`: データベースユーザーのパスワード。
+-   `MYSQL_ROOT_PASSWORD`: MySQLサーバーのrootパスワード（`docker-compose.yml` の `db` サービスおよびphpMyAdminで使用）。
 
-**Note:**
-- The National Diet Library API endpoint (`https://iss.ndl.go.jp/api/opensearch`) and the base URL for scraping new releases (`https://hon-hikidashi.jp`) are currently hardcoded in `src/Controllers/ComicController.php`. They are not configurable via environment variables.
-- The OCR service URL (`http://ocr_service:5000/ocr`) is also hardcoded in `src/Controllers/ComicController.php`.
+**注:**
+- 国立国会図書館APIエンドポイント（`https://iss.ndl.go.jp/api/opensearch`）および新刊情報スクレイピング用のベースURL（`https://hon-hikidashi.jp`）は、現在 `src/Controllers/ComicController.php` にハードコードされています。これらは環境変数を介して設定することはできません。
+- OCRサービスURL（`http://ocr_service:5000/ocr`）も `src/Controllers/ComicController.php` にハードコードされています。
 
-## Contributing
+## 貢献
 
-If you find any issues or have suggestions for improvements, please report them using the GitHub issue tracker for this repository.
+問題を見つけたり、改善提案がある場合は、このリポジトリのGitHub課題トラッカーを使用して報告してください。
 
-1.  Check if the issue already exists.
-2.  If not, create a new issue, providing as much detail as possible:
-    *   Steps to reproduce the bug.
-    *   Expected behavior.
-    *   Actual behavior.
-    *   Screenshots (if applicable).
+1.  問題がすでに存在するかどうかを確認します。
+2.  存在しない場合は、新しい課題を作成し、可能な限り詳細な情報を提供してください:
+    *   バグを再現する手順。
+    *   期待される動作。
+    *   実際の動作。
+    *   スクリーンショット（該当する場合）。
 
-## License
+## ライセンス
 
-Unlicensed.
+未ライセンス
