@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  webapp:
+    build:
+      context: ./comic_tracker
+      dockerfile: Dockerfile # Assuming a Dockerfile for comic_tracker will be created
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=run.py
+      - FLASK_DEBUG=1
+      - DATABASE_URL=sqlite:////app/site.db # Use a path accessible inside the container
+      - SECRET_KEY=mysecretkeyfordocker
+      - OCR_SERVICE_URL=http://ocr_service:8001/extract_isbns/
+    volumes:
+      - ./comic_tracker:/app # Mounts the comic_tracker code into /app in the container
+      - webapp_data:/app/instance # Persist the sqlite db if it's in instance folder
+    depends_on:
+      - ocr_service
+    command: >
+      sh -c "flask db upgrade && flask run --host=0.0.0.0 --port=5000"
+    networks:
+      - comic_network
+
+  ocr_service:
+    build:
+      context: ./ocr_service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    volumes:
+      - ollama_data:/root/.ollama # Persist Ollama models
+    networks:
+      - comic_network
+    # Add healthcheck if needed, or rely on entrypoint.sh robustness
+
+networks:
+  comic_network:
+    driver: bridge
+
+volumes:
+  ollama_data:
+  webapp_data: # For persisting the SQLite DB if placed in /app/instance by Flask

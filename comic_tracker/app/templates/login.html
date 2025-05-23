@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In{% endblock %}
+
+{% block content %}
+  <h1>Sign In</h1>
+  <form action="{{ url_for('main.login') }}" method="post" novalidate>
+    {{ form.hidden_tag() }}
+    <div>
+      {{ form.username.label }}<br>
+      {{ form.username(size=32, class="form-control", aria_describedby="username_errors") }}<br>
+      {% if form.username.errors %}
+        <span id="username_errors" class="error-message">
+          {% for error in form.username.errors %}{{ error }}{% if not loop.last %}, {% endif %}{% endfor %}
+        </span>
+      {% endif %}
+    </div>
+    <div>
+      {{ form.password.label }}<br>
+      {{ form.password(size=32, class="form-control", aria_describedby="password_errors") }}<br>
+      {% if form.password.errors %}
+        <span id="password_errors" class="error-message">
+          {% for error in form.password.errors %}{{ error }}{% if not loop.last %}, {% endif %}{% endfor %}
+        </span>
+      {% endif %}
+    </div>
+    <div>
+      {{ form.remember_me() }}
+      {{ form.remember_me.label }}
+    </div>
+    <div>
+      {{ form.submit(class="button") }}
+    </div>
+  </form>
+  <p>New User? <a href="{{ url_for('main.register') }}">Click to Register!</a></p>
+{% endblock %}

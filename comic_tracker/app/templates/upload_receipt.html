@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Receipt for ISBN Extraction{% endblock %}
+
+{% block content %}
+  <h1>Upload Receipt Image</h1>
+  <p>Upload an image of a receipt or comic book cover to extract ISBNs using our OCR service.</p>
+  
+  <form method="POST" enctype="multipart/form-data" novalidate>
+    {{ form.hidden_tag() }}
+    <div>
+      {{ form.receipt_image.label }}<br>
+      {{ form.receipt_image(class="form-control-file", aria_describedby="receipt_image_errors") }}<br>
+      {% if form.receipt_image.errors %}
+        <span id="receipt_image_errors" class="error-message">
+          {% for error in form.receipt_image.errors %}{{ error }}{% if not loop.last %}, {% endif %}{% endfor %}
+        </span>
+      {% endif %}
+    </div>
+    <div>
+      {{ form.submit(class="button") }}
+    </div>
+  </form>
+
+  {% if ocr_error %}
+    <div class="error-message" style="margin-top: 20px; padding: 10px; border: 1px solid red; background-color: #fdd;">
+      <h2>OCR Service Error:</h2>
+      <p>{{ ocr_error }}</p>
+    </div>
+  {% endif %}
+
+  {% if extracted_isbns is not none %}
+    <section aria-labelledby="extracted-isbns-heading" style="margin-top: 20px;">
+      <h2 id="extracted-isbns-heading">Extracted ISBNs:</h2>
+      {% if extracted_isbns %}
+        <ul>
+          {% for isbn in extracted_isbns %}
+            <li>{{ isbn }}</li>
+          {% endfor %}
+        </ul>
+        <p>You can use these ISBNs to search for comics or add them to your collection.</p>
+      {% else %}
+        <p>No ISBNs were found in the uploaded image, or the image was unclear.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  <p style="margin-top: 20px;"><a href="{{ url_for('main.index') }}" class="button">Back to Dashboard</a></p>
+{% endblock %}

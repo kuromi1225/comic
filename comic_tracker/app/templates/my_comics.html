@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}My Comic Series{% endblock %}
+
+{% block content %}
+  <h1>My Comic Series</h1>
+  <p><a href="{{ url_for('main.add_comic') }}" class="button">Add New Comic Series</a></p>
+  
+  {% if comics %}
+    <section aria-labelledby="comic-series-list-heading">
+      <h2 id="comic-series-list-heading" class="visually-hidden">List of Your Comic Series</h2>
+      <ul>
+        {% for comic in comics %}
+          <li>
+            <a href="{{ url_for('main.comic_detail', comic_id=comic.id) }}">{{ comic.title }}</a>
+            {% if comic.author %}(by {{ comic.author }}){% endif %}
+            {% if comic.total_volumes %}- {{ comic.total_volumes }} volumes total{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% else %}
+    <p>You haven't added any comic series yet. <a href="{{ url_for('main.add_comic') }}">Why not add one now?</a></p>
+  {% endif %}
+{% endblock %}

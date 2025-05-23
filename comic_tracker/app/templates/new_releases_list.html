@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+  <h1>New Comic Releases for {{ month_name }} {{ year }}</h1>
+
+  {% if releases %}
+    <p>These are upcoming or recent releases for comic series that you might be interested in, based on the release calendar. You do not currently own these specific volumes.</p>
+    <div class="table-container">
+      <table>
+        <caption>New comic releases for {{ month_name }} {{ year }}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Title</th>
+            <th scope="col">Volume</th>
+            <th scope="col">Release Date</th>
+            <th scope="col">Source</th>
+            <th scope="col">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for release in releases %}
+            <tr>
+              <td>{{ release.title }}</td>
+              <td>{{ release.volume_number }}</td>
+              <td>{{ release.release_date }}</td>
+              <td>{{ release.source_name }}</td>
+              <td>
+                {% if release.comic_id %}
+                  <a href="{{ url_for('main.comic_detail', comic_id=release.comic_id) }}">View Series / Add Volume</a>
+                {% else %}
+                  (Series not yet in main DB)
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p>No new releases found for you this month, or you already own all upcoming volumes for series in the release calendar.</p>
+  {% endif %}
+  <p><a href="{{ url_for('main.index') }}" class="button">Back to Dashboard</a></p>
+{% endblock %}

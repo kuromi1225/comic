@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+  <h1>Dashboard</h1>
+  {% if current_user.is_authenticated %}
+    <p>Welcome back, {{ current_user.username }}!</p>
+    <p>Here's a summary of your comic collection and new releases:</p>
+    
+    <section aria-labelledby="new-releases-heading">
+      <h2 id="new-releases-heading">New Releases This Month</h2>
+      {% if new_releases_count > 0 %}
+        <p>
+          You have <a href="{{ url_for('main.new_releases_list') }}">{{ new_releases_count }} new comic release(s)</a> this month that you might be interested in!
+        </p>
+      {% else %}
+        <p>No new comic releases found for you this month based on the release calendar.</p>
+      {% endif %}
+    </section>
+
+    <section aria-labelledby="missing-volumes-heading">
+      <h2 id="missing-volumes-heading">Collection Gaps</h2>
+      {% if missing_volumes_count > 0 %}
+        <p>
+          You have <a href="{{ url_for('main.comics_missing_volumes_list') }}">{{ missing_volumes_count }} comic series</a> with unpurchased or skipped volumes.
+        </p>
+      {% else %}
+        <p>No comic series with missing/skipped volumes found in your collection. Well done!</p>
+      {% endif %}
+    </section>
+    
+  {% else %}
+    <p>Please <a href="{{ url_for('main.login') }}">login</a> or <a href="{{ url_for('main.register') }}">register</a> to manage your comic collection.</p>
+  {% endif %}
+{% endblock %}

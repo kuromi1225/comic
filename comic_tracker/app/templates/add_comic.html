@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Add Comic Series{% endblock %}
+
+{% block content %}
+  <h1>Add a New Comic Series</h1>
+  <form action="{{ url_for('main.add_comic') }}" method="post" novalidate>
+    {{ form.hidden_tag() }}
+    <div>
+      {{ form.title.label }}<br>
+      {{ form.title(size=60, class="form-control", aria_describedby="title_errors") }}<br>
+      {% if form.title.errors %}
+        <span id="title_errors" class="error-message">
+          {% for error in form.title.errors %}{{ error }}{% if not loop.last %}, {% endif %}{% endfor %}
+        </span>
+      {% endif %}
+    </div>
+    <div>
+      {{ form.author.label }}<br>
+      {{ form.author(size=60, class="form-control", aria_describedby="author_errors") }}<br>
+      {% if form.author.errors %}
+        <span id="author_errors" class="error-message">
+          {% for error in form.author.errors %}{{ error }}{% if not loop.last %}, {% endif %}{% endfor %}
+        </span>
+      {% endif %}
+    </div>
+    <div>
+      {{ form.total_volumes.label }}<br>
+      {{ form.total_volumes(size=10, class="form-control", aria_describedby="total_volumes_errors") }}<br>
+      {% if form.total_volumes.errors %}
+        <span id="total_volumes_errors" class="error-message">
+          {% for error in form.total_volumes.errors %}{{ error }}{% if not loop.last %}, {% endif %}{% endfor %}
+        </span>
+      {% endif %}
+    </div>
+    <div>
+      {{ form.submit(class="button") }}
+    </div>
+  </form>
+{% endblock %}

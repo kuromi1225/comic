@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}{{ comic.title }} - Details{% endblock %}
+
+{% block content %}
+  <article aria-labelledby="comic-title">
+    <h1 id="comic-title">{{ comic.title }}</h1>
+    <p><strong>Author:</strong> {{ comic.author if comic.author else 'N/A' }}</p>
+    <p><strong>Total Volumes in Series:</strong> {{ comic.total_volumes if comic.total_volumes else 'N/A' }}</p>
+  </article>
+
+  <hr>
+
+  <section aria-labelledby="owned-volumes-heading">
+    <h2 id="owned-volumes-heading">My Owned Volumes</h2>
+    {% if user_volumes %}
+      <ul>
+        {% for vol in user_volumes %}
+          <li>
+            Volume {{ vol.volume_number }}
+            {% if vol.purchase_date %}(Purchased: {{ vol.purchase_date.strftime('%Y-%m-%d') }}){% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>You don't have any volumes for this series yet.</p>
+    {% endif %}
+  </section>
+
+  <hr>
+
+  <section aria-labelledby="add-volume-heading">
+    <h2 id="add-volume-heading">Add a Volume to Your Collection</h2>
+    <form action="{{ url_for('main.comic_detail', comic_id=comic.id) }}" method="post" novalidate>
+      {{ form.hidden_tag() }}
+      <div>
+        {{ form.volume_number.label }}<br>
+        {{ form.volume_number(size=10, class="form-control", aria_describedby="volume_number_errors") }}<br>
+        {% if form.volume_number.errors %}
+          <span id="volume_number_errors" class="error-message">
+            {% for error in form.volume_number.errors %}{{ error }}{% if not loop.last %}, {% endif %}{% endfor %}
+          </span>
+        {% endif %}
+      </div>
+      <div>
+        {{ form.purchase_date.label }} (Format: YYYY-MM-DD)<br>
+        {{ form.purchase_date(class="form-control", aria_describedby="purchase_date_errors") }}<br>
+        {% if form.purchase_date.errors %}
+          <span id="purchase_date_errors" class="error-message">
+            {% for error in form.purchase_date.errors %}{{ error }}{% if not loop.last %}, {% endif %}{% endfor %}
+          </span>
+        {% endif %}
+      </div>
+      <div>
+        {{ form.submit(class="button") }}
+      </div>
+    </form>
+  </section>
+  <p><a href="{{ url_for('main.my_comics') }}">Back to My Comic Series List</a></p>
+{% endblock %}

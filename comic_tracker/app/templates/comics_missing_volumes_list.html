@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+  <h1>{{ title }}</h1>
+
+  {% if comics_list %}
+    <p>The following comic series in your collection have potential gaps or are incomplete:</p>
+    <div class="table-container">
+      <table>
+        <caption>Comics with missing or skipped volumes</caption>
+        <thead>
+          <tr>
+            <th scope="col">Title</th>
+            <th scope="col">Author</th>
+            <th scope="col">Owned Summary</th>
+            <th scope="col">Missing Information</th>
+            <th scope="col">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for comic_info in comics_list %}
+            <tr>
+              <td>{{ comic_info.title }}</td>
+              <td>{{ comic_info.author if comic_info.author else 'N/A' }}</td>
+              <td>{{ comic_info.owned_summary }}</td>
+              <td>{{ comic_info.missing_info }}</td>
+              <td>
+                <a href="{{ url_for('main.comic_detail', comic_id=comic_info.comic_id) }}">View Series / Add Volume</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p>No comic series with missing or skipped volumes found in your collection, or all your series are complete up to their known total volumes! Well done!</p>
+  {% endif %}
+  <p><a href="{{ url_for('main.index') }}" class="button">Back to Dashboard</a></p>
+{% endblock %}
