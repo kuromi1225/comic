@@ -2,16 +2,9 @@ import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-or
 
 /**
  * Core user table backing auth flow.
- * Extend this file with additional tables as your product grows.
- * Columns use camelCase to match both database fields and generated types.
  */
 export const users = mysqlTable("users", {
-  /**
-   * Surrogate primary key. Auto-incremented numeric value managed by the database.
-   * Use this for relations between tables.
-   */
   id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
@@ -25,4 +18,42 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+/**
+ * Comics table - 蔵書情報を管理するメインテーブル
+ */
+export const comics = mysqlTable("comics", {
+  id: int("id").autoincrement().primaryKey(),
+  isbn: varchar("isbn", { length: 20 }).notNull().unique(),
+  title: text("title").notNull(),
+  author: text("author"),
+  publisher: text("publisher"),
+  series: text("series"),
+  imageUrl: text("imageUrl"), // S3に保存した書影のURL
+  status: mysqlEnum("status", ["unread", "read"]).default("unread").notNull(),
+  userId: int("userId").notNull(), // ユーザーごとの蔵書管理
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Comic = typeof comics.$inferSelect;
+export type InsertComic = typeof comics.$inferInsert;
+
+/**
+ * New Releases table - 新刊情報を管理するテーブル
+ */
+export const newReleases = mysqlTable("newReleases", {
+  id: int("id").autoincrement().primaryKey(),
+  isbn: varchar("isbn", { length: 20 }).notNull().unique(),
+  title: text("title").notNull(),
+  author: text("author"),
+  publisher: text("publisher"),
+  series: text("series"),
+  imageUrl: text("imageUrl"),
+  releaseDate: timestamp("releaseDate"),
+  purchased: int("purchased").default(0).notNull(), // 0: 未購入, 1: 購入済み
+  userId: int("userId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type NewRelease = typeof newReleases.$inferSelect;
+export type InsertNewRelease = typeof newReleases.$inferInsert;
