@@ -90,6 +90,11 @@ export default function Home() {
                   蔵書一覧
                 </a>
               </Link>
+              <Link href="/series">
+                <a className="text-gray-600 hover:text-blue-600 transition-colors">
+                  シリーズ一覧
+                </a>
+              </Link>
               <Link href="/new-releases">
                 <a className="text-sm font-medium hover:text-primary transition-colors">
                   新刊一覧

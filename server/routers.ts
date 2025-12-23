@@ -7,6 +7,7 @@ import * as db from "./db";
 import { fetchBookInfo } from "./bookApi";
 import { nanoid } from "nanoid";
 import { parseCSV, startImportJob, getJobProgress, cleanupJob } from "./csvImport";
+import { groupBySeries, getMissingVolumesInfo } from "./seriesHelper";
 
 export const appRouter = router({
   system: systemRouter,
@@ -129,6 +130,25 @@ export const appRouter = router({
       .mutation(({ input }) => {
         cleanupJob(input.jobId);
         return { success: true };
+      }),
+  }),
+
+  series: router({
+    // シリーズ一覧取得
+    list: protectedProcedure.query(async ({ ctx }) => {
+      const comics = await db.getComicsByUserId(ctx.user.id);
+      return groupBySeries(comics);
+    }),
+
+    // 特定シリーズの詳細取得
+    detail: protectedProcedure
+      .input(z.object({ seriesName: z.string() }))
+      .query(async ({ ctx, input }) => {
+        const comics = await db.getComicsByUserId(ctx.user.id);
+        const series = groupBySeries(comics).find(
+          (s) => s.seriesName === input.seriesName
+        );
+        return series;
       }),
   }),
 

@@ -50,6 +50,11 @@ export default function Library() {
               <Link href="/library">
                 <a className="text-sm font-medium text-primary">蔵書一覧</a>
               </Link>
+              <Link href="/series">
+                <a className="text-sm font-medium hover:text-primary transition-colors">
+                  シリーズ一覧
+                </a>
+              </Link>
               <Link href="/new-releases">
                 <a className="text-sm font-medium hover:text-primary transition-colors">
                   新刊一覧

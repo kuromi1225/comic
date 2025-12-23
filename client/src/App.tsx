@@ -5,6 +5,8 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import Series from "./pages/Series";
+import SeriesDetail from "./pages/SeriesDetail";
 import Library from "./pages/Library";
 import ComicDetail from "./pages/ComicDetail";
 import Register from "./pages/Register";
@@ -14,6 +16,8 @@ function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
+      <Route path={"/series"} component={Series} />
+      <Route path={"/series/:seriesName"} component={SeriesDetail} />
       <Route path={"/library"} component={Library} />
       <Route path={"/comic/:id"} component={ComicDetail} />
       <Route path={"/register"} component={Register} />
