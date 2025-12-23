@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
 import { BookOpen, Upload, Camera } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { toast } from "sonner";
 
@@ -14,6 +14,8 @@ export default function Register() {
   const { user } = useAuth();
   const [isbn, setIsbn] = useState("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const utils = trpc.useUtils();
   const createMutation = trpc.comics.create.useMutation({
@@ -61,14 +63,50 @@ export default function Register() {
     }
   };
 
+  const startImportMutation = trpc.csvImport.start.useMutation({
+    onSuccess: (data) => {
+      setJobId(data.jobId);
+      setIsImporting(true);
+      toast.success(`${data.total}件のISBNを検出しました。登録を開始します...`);
+    },
+    onError: (error) => {
+      toast.error(`エラー: ${error.message}`);
+    },
+  });
+
+  const { data: progressData } = trpc.csvImport.progress.useQuery(
+    { jobId: jobId! },
+    { 
+      enabled: !!jobId && isImporting,
+      refetchInterval: 1000, // 1秒ごとに進捗をチェック
+    }
+  );
+
+  const cleanupMutation = trpc.csvImport.cleanup.useMutation();
+
+  useEffect(() => {
+    if (progressData && progressData.status === "completed") {
+      setIsImporting(false);
+      toast.success(
+        `登録完了: 成功 ${progressData.progress.success}件 / 失敗 ${progressData.progress.failed}件`
+      );
+      utils.comics.list.invalidate();
+      utils.comics.stats.invalidate();
+    }
+  }, [progressData]);
+
   const handleCsvUpload = async () => {
     if (!csvFile) {
       toast.error("CSVファイルを選択してください");
       return;
     }
 
-    // TODO: CSV一括登録処理を実装
-    toast.info("CSV一括登録機能は実装中です");
+    try {
+      const csvContent = await csvFile.text();
+      startImportMutation.mutate({ csvContent });
+    } catch (error) {
+      toast.error("CSVファイルの読み込みに失敗しました");
+    }
   };
 
   if (!user) {
@@ -172,18 +210,79 @@ export default function Register() {
                       type="file"
                       accept=".csv"
                       onChange={(e) => setCsvFile(e.target.files?.[0] || null)}
+                      disabled={isImporting}
                     />
                     <p className="text-sm text-muted-foreground">
-                      ISBNのリストを含むCSVファイルをアップロードしてください
+                      ISBNのリストを含むCSVファイルをアップロードしてください。
+                      各行の最初の列がISBNとして読み込まれます。
                     </p>
                   </div>
-                  {csvFile && (
+                  {csvFile && !isImporting && (
                     <div className="text-sm text-muted-foreground">
                       選択されたファイル: {csvFile.name}
                     </div>
                   )}
-                  <Button onClick={handleCsvUpload} className="w-full" disabled={!csvFile}>
-                    一括登録を開始
+                  
+                  {isImporting && progressData && (
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>進捗状況</span>
+                          <span className="font-medium">
+                            {progressData.progress.processed} / {progressData.progress.total}
+                          </span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div
+                            className="bg-primary h-2 rounded-full transition-all"
+                            style={{
+                              width: `${(progressData.progress.processed / progressData.progress.total) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">成功: </span>
+                          <span className="font-medium text-green-600">
+                            {progressData.progress.success}件
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">失敗: </span>
+                          <span className="font-medium text-red-600">
+                            {progressData.progress.failed}件
+                          </span>
+                        </div>
+                      </div>
+                      {progressData.progress.errors.length > 0 && (
+                        <details className="text-sm">
+                          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                            エラー詳細 ({progressData.progress.errors.length}件)
+                          </summary>
+                          <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                            {progressData.progress.errors.slice(0, 10).map((error, i) => (
+                              <div key={i} className="text-xs text-red-600">
+                                ISBN: {error.isbn} - {error.error}
+                              </div>
+                            ))}
+                            {progressData.progress.errors.length > 10 && (
+                              <div className="text-xs text-muted-foreground">
+                                ...他 {progressData.progress.errors.length - 10}件
+                              </div>
+                            )}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  )}
+
+                  <Button 
+                    onClick={handleCsvUpload} 
+                    className="w-full" 
+                    disabled={!csvFile || isImporting || startImportMutation.isPending}
+                  >
+                    {isImporting ? "登録中..." : "一括登録を開始"}
                   </Button>
                 </div>
               </TabsContent>

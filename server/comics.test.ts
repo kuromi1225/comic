@@ -4,12 +4,13 @@ import type { TrpcContext } from "./_core/context";
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
-function createAuthContext(): TrpcContext {
+function createAuthContext(userId?: number): TrpcContext {
+  const id = userId || Math.floor(Math.random() * 1000000) + 1000;
   const user: AuthenticatedUser = {
-    id: 1,
-    openId: "test-user",
-    email: "test@example.com",
-    name: "Test User",
+    id,
+    openId: `test-user-${id}`,
+    email: `test${id}@example.com`,
+    name: `Test User ${id}`,
     loginMethod: "manus",
     role: "user",
     createdAt: new Date(),
@@ -58,15 +59,18 @@ describe("comics router", () => {
     const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
+    // ユニークISBNを生成
+    const uniqueIsbn = `978406512${Date.now().toString().slice(-4)}`;
+
     const comic = await caller.comics.create({
-      isbn: "9784065123456",
+      isbn: uniqueIsbn,
       title: "テスト漫画",
       author: "テスト著者",
       publisher: "テスト出版社",
     });
 
     expect(comic).toBeDefined();
-    expect(comic.isbn).toBe("9784065123456");
+    expect(comic.isbn).toBe(uniqueIsbn);
     expect(comic.title).toBe("テスト漫画");
     expect(comic.status).toBe("unread");
   });

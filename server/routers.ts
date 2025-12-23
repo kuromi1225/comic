@@ -5,6 +5,8 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
 import { fetchBookInfo } from "./bookApi";
+import { nanoid } from "nanoid";
+import { parseCSV, startImportJob, getJobProgress, cleanupJob } from "./csvImport";
 
 export const appRouter = router({
   system: systemRouter,
@@ -94,6 +96,39 @@ export const appRouter = router({
       .input(z.object({ isbn: z.string() }))
       .query(async ({ input }) => {
         return await fetchBookInfo(input.isbn);
+      }),
+  }),
+
+  csvImport: router({
+    // CSV一括登録ジョブを開始
+    start: protectedProcedure
+      .input(z.object({ csvContent: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const isbns = parseCSV(input.csvContent);
+        
+        if (isbns.length === 0) {
+          throw new Error("有効なISBNが見つかりませんでした");
+        }
+
+        const jobId = nanoid();
+        await startImportJob(jobId, ctx.user.id, isbns);
+        
+        return { jobId, total: isbns.length };
+      }),
+
+    // ジョブの進捗状況を取得
+    progress: protectedProcedure
+      .input(z.object({ jobId: z.string() }))
+      .query(({ input }) => {
+        return getJobProgress(input.jobId);
+      }),
+
+    // ジョブをクリーンアップ
+    cleanup: protectedProcedure
+      .input(z.object({ jobId: z.string() }))
+      .mutation(({ input }) => {
+        cleanupJob(input.jobId);
+        return { success: true };
       }),
   }),
 
