@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
 import { BookOpen, Upload, Camera } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createWorker } from "tesseract.js";
 import { Link } from "wouter";
 import { toast } from "sonner";
 
@@ -16,6 +17,12 @@ export default function Register() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [ocrImage, setOcrImage] = useState<File | null>(null);
+  const [isOcrProcessing, setIsOcrProcessing] = useState(false);
+  const [ocrResult, setOcrResult] = useState<string>("");
+  const [extractedIsbns, setExtractedIsbns] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const utils = trpc.useUtils();
   const createMutation = trpc.comics.create.useMutation({
@@ -94,6 +101,92 @@ export default function Register() {
       utils.comics.stats.invalidate();
     }
   }, [progressData]);
+
+  const extractIsbnFromText = (text: string): string[] => {
+    const isbns: string[] = [];
+    
+    // ISBN-13のパターン: 978 or 979で始まる13桁の数字
+    const isbn13Pattern = /(?:978|979)[\s-]?\d{1,5}[\s-]?\d{1,7}[\s-]?\d{1,7}[\s-]?\d{1}/g;
+    const matches13 = text.match(isbn13Pattern);
+    if (matches13) {
+      matches13.forEach(match => {
+        const cleaned = match.replace(/[\s-]/g, "");
+        if (cleaned.length === 13) {
+          isbns.push(cleaned);
+        }
+      });
+    }
+
+    // ISBN-10のパターン: 10桁の数字（最後はXも可）
+    const isbn10Pattern = /\b\d{9}[\dXx]\b/g;
+    const matches10 = text.match(isbn10Pattern);
+    if (matches10) {
+      matches10.forEach(match => {
+        isbns.push(match.toUpperCase());
+      });
+    }
+
+    return Array.from(new Set(isbns)); // 重複を除去
+  };
+
+  const handleOcrImage = async (file: File) => {
+    setIsOcrProcessing(true);
+    setOcrResult("");
+    setExtractedIsbns([]);
+
+    try {
+      const worker = await createWorker("jpn");
+      const { data } = await worker.recognize(file);
+      await worker.terminate();
+
+      setOcrResult(data.text);
+      const isbns = extractIsbnFromText(data.text);
+      setExtractedIsbns(isbns);
+
+      if (isbns.length === 0) {
+        toast.error("ISBNが見つかりませんでした。画像を鮮明に撮影し直してください。");
+      } else {
+        toast.success(`${isbns.length}件のISBNを検出しました`);
+      }
+    } catch (error) {
+      console.error("OCR error:", error);
+      toast.error("OCR処理に失敗しました");
+    } finally {
+      setIsOcrProcessing(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setOcrImage(file);
+      handleOcrImage(file);
+    }
+  };
+
+  const handleRegisterFromOcr = async (isbn: string) => {
+    try {
+      // 外部APIから書誌情報を取得
+      const bookInfo = await utils.client.comics.fetchBookInfo.query({ isbn });
+      if (bookInfo) {
+        await createMutation.mutateAsync({
+          isbn: bookInfo.isbn,
+          title: bookInfo.title,
+          author: bookInfo.author || "",
+          publisher: bookInfo.publisher || "",
+          series: bookInfo.series,
+          imageUrl: bookInfo.imageUrl,
+        });
+        toast.success(`${bookInfo.title}を登録しました`);
+        // 登録済みのISBNをリストから削除
+        setExtractedIsbns(prev => prev.filter(i => i !== isbn));
+      } else {
+        toast.error(`ISBN: ${isbn} の書誌情報が見つかりませんでした`);
+      }
+    } catch (error) {
+      toast.error(`ISBN: ${isbn} の登録に失敗しました`);
+    }
+  };
 
   const handleCsvUpload = async () => {
     if (!csvFile) {
@@ -284,6 +377,112 @@ export default function Register() {
                   >
                     {isImporting ? "登録中..." : "一括登録を開始"}
                   </Button>
+                </div>
+              </TabsContent>
+
+              {/* OCRタブ */}
+              <TabsContent value="ocr">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>レシート画像をアップロード</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isOcrProcessing}
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          ファイルを選択
+                        </Button>
+                      </div>
+                      <div>
+                        <input
+                          ref={cameraInputRef}
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => cameraInputRef.current?.click()}
+                          disabled={isOcrProcessing}
+                        >
+                          <Camera className="h-4 w-4 mr-2" />
+                          カメラで撮影
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      レシートを撮影またはアップロードすると、ISBNを自動で読み取ります。
+                    </p>
+                  </div>
+
+                  {isOcrProcessing && (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-center">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        <p className="mt-4 text-sm text-muted-foreground">OCR処理中...</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {ocrImage && !isOcrProcessing && (
+                    <div className="space-y-4">
+                      <div>
+                        <Label>アップロードされた画像</Label>
+                        <img
+                          src={URL.createObjectURL(ocrImage)}
+                          alt="レシート"
+                          className="w-full max-w-md mx-auto rounded-lg border"
+                        />
+                      </div>
+
+                      {extractedIsbns.length > 0 && (
+                        <div className="space-y-3">
+                          <Label>検出されたISBN ({extractedIsbns.length}件)</Label>
+                          <div className="space-y-2">
+                            {extractedIsbns.map((isbn, index) => (
+                              <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                                <span className="font-mono text-sm">{isbn}</span>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleRegisterFromOcr(isbn)}
+                                  disabled={createMutation.isPending}
+                                >
+                                  登録
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {ocrResult && (
+                        <details className="text-sm">
+                          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                            OCR読み取り結果を表示
+                          </summary>
+                          <pre className="mt-2 p-3 bg-muted rounded text-xs overflow-auto max-h-40">
+                            {ocrResult}
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  )}
                 </div>
               </TabsContent>
             </Tabs>
