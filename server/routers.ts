@@ -25,15 +25,16 @@ export const appRouter = router({
   comics: router({
     // 蔵書一覧取得
     list: protectedProcedure
-      .input(z.object({
-        search: z.string().optional(),
-        status: z.enum(["unread", "read"]).optional(),
-        sortBy: z.enum(["createdAt", "title", "author"]).optional(),
-        limit: z.number().optional(),
-        offset: z.number().optional(),
-      }).optional())
-      .query(async ({ ctx, input }) => {
-        return await db.getComicsByUserId(ctx.user.id, input);
+      .input(
+        z.object({
+          search: z.string().optional(),
+          isRead: z.boolean().optional(),
+          sortBy: z.enum(["createdAt", "title", "author"]).optional(),
+          limit: z.number().optional(),
+        })
+      )
+      .query(async ({ input, ctx }) => {
+        return db.getComicsByUserId(ctx.user.id, input);
       }),
 
     // 蔵書統計取得
@@ -57,6 +58,7 @@ export const appRouter = router({
         publisher: z.string().optional(),
         series: z.string().optional(),
         imageUrl: z.string().optional(),
+        imageData: z.string().optional(),
         status: z.enum(["unread", "read"]).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
@@ -68,12 +70,9 @@ export const appRouter = router({
 
     // 蔵書ステータス更新
     updateStatus: protectedProcedure
-      .input(z.object({
-        id: z.number(),
-        status: z.enum(["unread", "read"]),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        await db.updateComicStatus(input.id, ctx.user.id, input.status);
+      .input(z.object({ id: z.number(), isRead: z.boolean() }))
+      .mutation(async ({ input, ctx }) => {
+        await db.updateComicReadStatus(input.id, ctx.user.id, input.isRead);
         return { success: true };
       }),
 
@@ -96,7 +95,8 @@ export const appRouter = router({
     fetchBookInfo: protectedProcedure
       .input(z.object({ isbn: z.string() }))
       .query(async ({ input }) => {
-        return await fetchBookInfo(input.isbn);
+        // 画像をダウンロードしてBase64エンコード
+        return await fetchBookInfo(input.isbn, true);
       }),
   }),
 

@@ -25,7 +25,7 @@ export default function ComicDetail() {
   const [, setLocation] = useLocation();
   const comicId = Number(params.id);
 
-  const { data: comics } = trpc.comics.list.useQuery(undefined, { enabled: !!user });
+  const { data: comics } = trpc.comics.list.useQuery({}, { enabled: !!user });
   const comic = comics?.find((c) => c.id === comicId);
 
   const utils = trpc.useUtils();
@@ -101,9 +101,9 @@ export default function ComicDetail() {
           {/* 書影エリア */}
           <div className="md:col-span-1">
             <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden sticky top-8">
-              {comic.imageUrl ? (
+              {(comic.imageData || comic.imageUrl) ? (
                 <img
-                  src={comic.imageUrl}
+                  src={comic.imageData || comic.imageUrl || ""}
                   alt={comic.title}
                   className="w-full h-full object-cover"
                 />
@@ -162,15 +162,15 @@ export default function ComicDetail() {
                   </Label>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">
-                      {comic.status === "unread" ? "未読" : "既読"}
+                      {comic.isRead ? "既読" : "未読"}
                     </span>
                     <Switch
                       id="status-toggle"
-                      checked={comic.status === "read"}
+                      checked={!!comic.isRead}
                       onCheckedChange={(checked) =>
                         updateStatusMutation.mutate({
                           id: comic.id,
-                          status: checked ? "read" : "unread",
+                          isRead: checked,
                         })
                       }
                     />

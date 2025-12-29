@@ -1,0 +1,1 @@
+ALTER TABLE `comics` MODIFY COLUMN `isRead` int NOT NULL DEFAULT 0;

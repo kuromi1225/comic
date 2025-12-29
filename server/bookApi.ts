@@ -1,4 +1,5 @@
 import axios from "axios";
+import { downloadAndEncodeImage, generateDefaultCoverImage } from "./imageHelper";
 
 export interface BookInfo {
   isbn: string;
@@ -7,6 +8,7 @@ export interface BookInfo {
   publisher?: string;
   series?: string;
   imageUrl?: string;
+  imageData?: string; // Base64エンコードされた画像データ
   releaseDate?: Date;
 }
 
@@ -76,8 +78,10 @@ export async function fetchCoverFromNDL(isbn: string): Promise<string | null> {
 
 /**
  * ISBNから書誌情報を取得（openBD優先、フォールバックとしてNDL）
+ * @param isbn ISBN番号
+ * @param downloadImage trueの場合、画像をダウンロードしてBase64エンコード
  */
-export async function fetchBookInfo(isbn: string): Promise<BookInfo | null> {
+export async function fetchBookInfo(isbn: string, downloadImage: boolean = false): Promise<BookInfo | null> {
   // まずopenBDから取得
   let bookInfo = await fetchBookInfoFromOpenBD(isbn);
 
@@ -89,17 +93,45 @@ export async function fetchBookInfo(isbn: string): Promise<BookInfo | null> {
         bookInfo.imageUrl = ndlCover;
       }
     }
+
+    // 画像をダウンロードしてBase64エンコード
+    if (downloadImage) {
+      if (bookInfo.imageUrl) {
+        const imageData = await downloadAndEncodeImage(bookInfo.imageUrl);
+        if (imageData) {
+          bookInfo.imageData = imageData;
+        } else {
+          // ダウンロード失敗時はデフォルト画像を生成
+          bookInfo.imageData = generateDefaultCoverImage(bookInfo.title);
+        }
+      } else {
+        // 書影URLがない場合はデフォルト画像を生成
+        bookInfo.imageData = generateDefaultCoverImage(bookInfo.title);
+      }
+    }
+
     return bookInfo;
   }
 
   // openBDで見つからない場合、NDLから書影のみ取得
   const ndlCover = await fetchCoverFromNDL(isbn);
   if (ndlCover) {
-    return {
+    const result: BookInfo = {
       isbn,
       title: `ISBN: ${isbn}`,
       imageUrl: ndlCover,
     };
+
+    if (downloadImage) {
+      const imageData = await downloadAndEncodeImage(ndlCover);
+      if (imageData) {
+        result.imageData = imageData;
+      } else {
+        result.imageData = generateDefaultCoverImage(result.title);
+      }
+    }
+
+    return result;
   }
 
   return null;

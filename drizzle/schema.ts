@@ -23,14 +23,16 @@ export type InsertUser = typeof users.$inferInsert;
  */
 export const comics = mysqlTable("comics", {
   id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
   isbn: varchar("isbn", { length: 20 }).notNull().unique(),
   title: text("title").notNull(),
   author: text("author"),
   publisher: text("publisher"),
   series: text("series"),
-  imageUrl: text("imageUrl"), // S3に保存した書影のURL
-  status: mysqlEnum("status", ["unread", "read"]).default("unread").notNull(),
-  userId: int("userId").notNull(), // ユーザーごとの蔵書管理
+  volume: int("volume"),
+  imageUrl: text("imageUrl"),
+  imageData: text("imageData"), // Base64エンコードされた画像データ
+  isRead: int("isRead").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

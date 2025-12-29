@@ -11,13 +11,13 @@ import { Link } from "wouter";
 export default function Library() {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<"all" | "unread" | "read">("all");
+  const [readFilter, setReadFilter] = useState<"all" | "unread" | "read">("all");
   const [sortBy, setSortBy] = useState<"createdAt" | "title" | "author">("createdAt");
 
   const { data: comics } = trpc.comics.list.useQuery(
     {
       search: search || undefined,
-      status: status === "all" ? undefined : status,
+      isRead: readFilter === "all" ? undefined : readFilter === "read",
       sortBy,
     },
     { enabled: !!user }
@@ -85,7 +85,7 @@ export default function Library() {
                   className="pl-9"
                 />
               </div>
-              <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
+              <Select value={readFilter} onValueChange={(v) => setReadFilter(v as typeof readFilter)}>
                 <SelectTrigger>
                   <SelectValue placeholder="ステータス" />
                 </SelectTrigger>
@@ -117,18 +117,18 @@ export default function Library() {
                 <Link href={`/comic/${comic.id}`}>
                   <a>
                     <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden mb-2 relative">
-                      {comic.imageUrl ? (
+                      {(comic.imageData || comic.imageUrl) ? (
                         <img
-                          src={comic.imageUrl}
+                          src={comic.imageData || comic.imageUrl || ""}
                           alt={comic.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          className="w-full h-full object-cover"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <BookOpen className="h-12 w-12 text-muted-foreground" />
                         </div>
                       )}
-                      {comic.status === "unread" && (
+                      {!comic.isRead && (
                         <div className="absolute top-2 right-2 bg-orange-500 text-white text-xs px-2 py-1 rounded">
                           未読
                         </div>
@@ -140,13 +140,13 @@ export default function Library() {
                     <p className="text-xs text-muted-foreground line-clamp-1">{comic.author}</p>
                   </a>
                 </Link>
-                {comic.status === "unread" && (
+                {!comic.isRead && (
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="outline"
                     className="w-full mt-2 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={() =>
-                      updateStatusMutation.mutate({ id: comic.id, status: "read" })
+                      updateStatusMutation.mutate({ id: comic.id, isRead: true })
                     }
                   >
                     既読にする

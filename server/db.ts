@@ -100,13 +100,11 @@ export async function createComic(comic: InsertComic): Promise<Comic> {
   if (!inserted) throw new Error("Failed to create comic");
   return inserted;
 }
-
 export async function getComicsByUserId(userId: number, filters?: {
   search?: string;
-  status?: "unread" | "read";
+  isRead?: boolean;
   sortBy?: "createdAt" | "title" | "author";
   limit?: number;
-  offset?: number;
 }): Promise<Comic[]> {
   const db = await getDb();
   if (!db) return [];
@@ -124,8 +122,8 @@ export async function getComicsByUserId(userId: number, filters?: {
     );
   }
   
-  if (filters?.status) {
-    conditions.push(eq(comics.status, filters.status));
+  if (filters?.isRead !== undefined) {
+    conditions.push(eq(comics.isRead, filters.isRead ? 1 : 0));
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -143,9 +141,6 @@ export async function getComicsByUserId(userId: number, filters?: {
   // Apply pagination
   if (filters?.limit !== undefined) {
     baseQuery = baseQuery.limit(filters.limit);
-    if (filters?.offset !== undefined) {
-      baseQuery = baseQuery.offset(filters.offset);
-    }
   }
 
   return await baseQuery;
@@ -162,12 +157,12 @@ export async function getComicByIsbn(isbn: string, userId: number): Promise<Comi
   return result[0];
 }
 
-export async function updateComicStatus(id: number, userId: number, status: "unread" | "read"): Promise<void> {
+export async function updateComicReadStatus(id: number, userId: number, isRead: boolean): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
   await db.update(comics)
-    .set({ status, updatedAt: new Date() })
+    .set({ isRead: isRead ? 1 : 0, updatedAt: new Date() })
     .where(and(eq(comics.id, id), eq(comics.userId, userId)));
 }
 
@@ -190,8 +185,8 @@ export async function getComicsStats(userId: number): Promise<{
   
   return {
     total: allComics.length,
-    unread: allComics.filter(c => c.status === "unread").length,
-    read: allComics.filter(c => c.status === "read").length,
+    unread: allComics.filter(c => !c.isRead).length,
+    read: allComics.filter(c => c.isRead).length,
   };
 }
 

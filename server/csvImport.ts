@@ -106,8 +106,8 @@ async function processImportJob(
         continue;
       }
 
-      // 外部APIから書誌情報を取得
-      const bookInfo = await fetchBookInfo(isbn);
+      // 外部APIから書誌情報を取得（画像もダウンロード）
+      const bookInfo = await fetchBookInfo(isbn, true);
 
       if (bookInfo) {
         // データベースに登録
@@ -118,6 +118,7 @@ async function processImportJob(
           publisher: bookInfo.publisher,
           series: bookInfo.series,
           imageUrl: bookInfo.imageUrl,
+          imageData: bookInfo.imageData,
           userId,
         });
 

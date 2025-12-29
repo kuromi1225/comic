@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: manga-manager-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: manga_root_password
+      MYSQL_DATABASE: manga_manager
+      MYSQL_USER: manga_user
+      MYSQL_PASSWORD: manga_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - manga_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pmanga_root_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Application
+  app:
+    build: .
+    container_name: manga-manager-app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: mysql://manga_user:manga_password@db:3306/manga_manager
+      JWT_SECRET: your-secret-key-change-this-in-production
+      VITE_APP_TITLE: 漫画管理システム
+      VITE_APP_LOGO: /logo.png
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "pnpm db:push && pnpm start"
+
+volumes:
+  manga_db_data:
+    driver: local

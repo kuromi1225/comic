@@ -165,9 +165,9 @@ export default function Home() {
                   <Link key={comic.id} href={`/comic/${comic.id}`}>
                     <a className="group">
                       <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden mb-2">
-                        {comic.imageUrl ? (
+                        {(comic.imageData || comic.imageUrl) ? (
                           <img
-                            src={comic.imageUrl}
+                            src={comic.imageData || comic.imageUrl || ""}
                             alt={comic.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                           />

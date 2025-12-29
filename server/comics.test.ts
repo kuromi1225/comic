@@ -50,7 +50,7 @@ describe("comics router", () => {
     const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
-    const comics = await caller.comics.list();
+    const comics = await caller.comics.list({});
 
     expect(comics).toEqual([]);
   });
@@ -72,6 +72,6 @@ describe("comics router", () => {
     expect(comic).toBeDefined();
     expect(comic.isbn).toBe(uniqueIsbn);
     expect(comic.title).toBe("テスト漫画");
-    expect(comic.status).toBe("unread");
+    expect(comic.isRead).toBe(0); // 0 = unread
   });
 });

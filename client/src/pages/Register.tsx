@@ -61,6 +61,7 @@ export default function Register() {
           publisher: bookInfo.data.publisher,
           series: bookInfo.data.series,
           imageUrl: bookInfo.data.imageUrl,
+          imageData: bookInfo.data.imageData,
         });
       } else {
         toast.error("書誌情報が見つかりませんでした");
@@ -176,6 +177,7 @@ export default function Register() {
           publisher: bookInfo.publisher || "",
           series: bookInfo.series,
           imageUrl: bookInfo.imageUrl,
+          imageData: bookInfo.imageData,
         });
         toast.success(`${bookInfo.title}を登録しました`);
         // 登録済みのISBNをリストから削除
